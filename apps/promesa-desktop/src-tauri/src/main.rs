@@ -1,129 +1,121 @@
+// src-tauri/src/main.rs
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::{Manager, WebviewUrl, RunEvent, Emitter};
+
+use std::{
+    thread,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
+use tauri::{Manager, RunEvent, WebviewUrl};
 use tauri::webview::WebviewWindowBuilder;
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
-
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_global_shortcut::{
+    Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
+};
 
+// ----- macOS: раскладконезависимый Cmd+C через Quartz CGEvent -----
+#[cfg(target_os = "macos")]
+fn emulate_copy() {
+    use core_graphics::event::{CGEvent, CGEventFlags, CGEventTapLocation};
+    use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+    // виртуальный код ANSI для клавиши 'C'
+    const ANSI_C: u16 = 8;
 
-// Имитируем системное Copy, чтобы в буфер попал выделенный текст
-fn press_system_copy() -> anyhow::Result<()> {
-    use enigo::{Enigo, Key, Keyboard, Direction, Settings};
-    let mut enigo = Enigo::new(&Settings::default())?;
+    let src = CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap();
 
-    #[cfg(target_os = "macos")]
-    {
-        enigo.key(Key::Meta, Direction::Press)?;              // Cmd down
-        enigo.key(Key::Unicode('c'), Direction::Click)?;       // 'c'
-        enigo.key(Key::Meta, Direction::Release)?;            // Cmd up
-    }
+    // KeyDown 'C' с флагом Command
+    let mut c_down = CGEvent::new_keyboard_event(src.clone(), ANSI_C as u16, true).unwrap();
+    c_down.set_flags(CGEventFlags::CGEventFlagCommand);
+    c_down.post(CGEventTapLocation::HID);
 
-    #[cfg(not(target_os = "macos"))]
-    {
-        enigo.key(Key::Control, Direction::Press)?;           // Ctrl down
-        enigo.key(Key::Unicode('c'), Direction::Click)?;       // 'c'
-        enigo.key(Key::Control, Direction::Release)?;         // Ctrl up
-    }
-
-    Ok(())
+    // KeyUp 'C' с флагом Command
+    let mut c_up = CGEvent::new_keyboard_event(src, ANSI_C as u16, false).unwrap();
+    c_up.set_flags(CGEventFlags::CGEventFlagCommand);
+    c_up.post(CGEventTapLocation::HID);
 }
 
-fn new_note_label() -> String {
+// ----- Win/Linux: Ctrl+C через Enigo 0.5 -----
+#[cfg(not(target_os = "macos"))]
+fn emulate_copy() {
+    use enigo::{Direction, Enigo, Key, Keyboard, Settings};
+    if let Ok(mut enigo) = Enigo::new(&Settings::default()) {
+        let _ = enigo.key(Key::Control, Direction::Press);
+        let _ = enigo.key(Key::Unicode('c'), Direction::Click);
+        let _ = enigo.key(Key::Control, Direction::Release);
+    }
+}
+
+fn new_label() -> String {
     let ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
     format!("note-{ms}")
 }
 
-fn open_note_with_clipboard_text(app: &tauri::AppHandle) {
-    // 1) Копируем выделение
-    press_system_copy();
-    thread::sleep(Duration::from_millis(120)); // маленькая пауза, чтобы буфер успел обновиться
+fn open_note_with_query(app: &tauri::AppHandle, text: String) {
+    let route = if text.is_empty() {
+        "todo/new".to_string()
+    } else {
+        format!("todo/new?text={}", urlencoding::encode(&text))
+    };
 
-    // 2) Читаем буфер
-    let text = app.clipboard().read_text().unwrap_or_default();
-    let q = urlencoding::encode(&text);
-
-    // 3) Открываем Angular на todo/new с автозаполнением через query
-    let label = new_note_label();
-    let route = format!("todo/new?text={q}");
-    let w = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(route.into()))
-        .title("Заметка")
-        .build();
-
-    if let Ok(win) = w {
+    let label = new_label();
+    if let Ok(win) =
+        WebviewWindowBuilder::new(app, &label, WebviewUrl::App(route.into()))
+            .title("Заметка")
+            .build()
+    {
         let _ = win.set_focus();
-        let _ = app.emit_to(&label, "note-text", q);
     }
-    //
-    // let app_handle = app.clone();
-    //
-    // thread::spawn(move || {
-    //     thread::sleep(Duration::from_millis(250));    // ← задержка
-    //     if let Some(wnd) = app_handle.get_webview_window(&label) {
-    //         let _ = wnd.emit("note-text", serde_json::json!({ "text": q }));
-    //     }
-    // });
-    //
-    // {
-    //     #[cfg(target_os = "macos")]
-    //     app.set_activation_policy(tauri::ActivationPolicy::Regular);
-    //     // Никаких prevent_close — окно реально закроется по Cmd+W
-    // }
-    // if let Ok(win) = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(route.into()))
-    //     .title("Заметка")
-    //     .build()
-    // {
-    //     let _ = win.set_focus();
-    //     // std::thread::sleep(std::time::Duration::from_millis(1500));
-    //     let _ = app.emit_to(&label, "note-text", serde_json::json!({ "text": q }));
-    //
-    //     // // данные, которые понадобятся в другом потоке
-    //     // let app_handle = app.clone();
-    //     // let label_for_thread = label.clone();
-    //     // let payload = serde_json::json!({ "text": q });
-    //     //
-    //     // // отдельный поток: ждём 250 мс и только потом шлём событие в это окно
-    //     // thread::spawn(move || {
-    //     //     thread::sleep(Duration::from_millis(250));                  // чтобы фронт успел подписаться
-    //     //     let _ = app_handle.emit_to(&label_for_thread, "note-text", payload);   // <— ВАЖНО: emit_to по label
-    //     // });
-    // }
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn main() {
-    // Соберём, чтобы иметь доступ к app.run(|_, event|)
+fn main() {
     let app = tauri::Builder::default()
         .setup(|app| {
-            // macOS: скрываем иконку из Dock, пока окна нет
-            #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
-
-            // Плагины
+            // плагины
             app.handle().plugin(tauri_plugin_clipboard_manager::init());
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
                     .with_handler(|app, shortcut, event| {
-                        let combo = Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::KeyN);
-                        if event.state() == ShortcutState::Pressed && *shortcut == combo {
-                            open_note_with_clipboard_text(app);
+                        // macOS: Cmd + Shift + Backslash
+                        let mac = Shortcut::new(
+                            Some(Modifiers::META | Modifiers::SHIFT),
+                            Code::Backslash,
+                        );
+                        // (опционально) Win/Linux: Ctrl + Shift + Backslash
+                        let win = Shortcut::new(
+                            Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                            Code::Backslash,
+                        );
+
+                        // Срабатываем на отпускание (Released), чтобы модификаторы не мешали Copy
+                        if event.state() == ShortcutState::Released && (*shortcut == mac || *shortcut == win) {
+                            emulate_copy();
+                            // ждём, пока ОС обновит буфер
+                            thread::sleep(Duration::from_millis(120));
+                            let text = app.clipboard().read_text().unwrap_or_default();
+                            open_note_with_query(app, text);
                         }
                     })
                     .build(),
             );
 
-            // Регистрируем хоткей Alt/Option + Shift + N
-            app.global_shortcut()
-                .register(Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::KeyN))?;
+            // регистрируем хоткеи
+            let gs = app.global_shortcut();
+            gs.register(Shortcut::new(
+                Some(Modifiers::META | Modifiers::SHIFT),
+                Code::Backslash,
+            ))?; // macOS
+            gs.register(Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                Code::Backslash,
+            ))?; // Win/Linux (по желанию)
 
             Ok(())
         })
         .build(tauri::generate_context!())
         .expect("build failed");
 
-    // Не даём процессу выйти, когда закрыто последнее окно — хоткей остаётся активным
-    app.run(|_handle, event| {
+    // держим процесс живым после закрытия последнего окна
+    app.run(|_, event| {
         if let RunEvent::ExitRequested { api, .. } = event {
             api.prevent_exit();
         }

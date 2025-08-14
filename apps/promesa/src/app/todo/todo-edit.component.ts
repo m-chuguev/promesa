@@ -6,18 +6,23 @@ import {TodoService} from "./todo.service";
 import {listen, once} from '@tauri-apps/api/event';
 import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import {TuiEditor} from "@taiga-ui/editor";
 
 
 @Component({
   selector: 'app-todo-edit',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, TuiEditor],
   template: `
     <h2>Edit note {{ id }}</h2>
     <h4>destroy: {{ todoService.counter() }} {{todoService.value}}</h4>
     <form [formGroup]="form" (ngSubmit)="save()">
       <label for="note">Note</label>
-      <input id="note" type="text" formControlName="note" />
+      <tui-editor
+        formControlName="note"
+      >
+        Placeholder
+      </tui-editor>
       <button type="submit">Save</button>
       {{payload | json}}
     </form>

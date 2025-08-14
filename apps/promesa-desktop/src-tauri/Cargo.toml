@@ -28,3 +28,8 @@ enigo = "0.5"
 urlencoding = "2"
 anyhow = "1"
 
+# только для macOS (HTML из буфера)
+cocoa = "0.24"
+objc = "0.2"
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.25"

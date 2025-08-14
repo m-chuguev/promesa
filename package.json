@@ -15,12 +15,14 @@
     "@angular/router": "~19.2.0",
     "@taiga-ui/cdk": "^4.49.0",
     "@taiga-ui/core": "^4.49.0",
+    "@taiga-ui/editor": "^4.37.0",
     "@taiga-ui/icons": "^4.49.0",
     "@taiga-ui/kit": "^4.49.0",
-    "rxjs": "~7.8.0",
-    "zone.js": "~0.15.0",
+    "@taiga-ui/legacy": "^4.49.0",
     "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2"
+    "@tauri-apps/plugin-opener": "^2",
+    "rxjs": "~7.8.0",
+    "zone.js": "~0.15.0"
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "~19.2.0",
