@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { TuiInputDate, TuiTag, TuiTextarea } from '@taiga-ui/kit';
 import { TuiTextfieldControllerModule, TuiTextfield } from '@taiga-ui/core';
+import { TuiDay } from '@taiga-ui/cdk';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
@@ -20,8 +21,8 @@ interface Note {
     CommonModule,
     ReactiveFormsModule,
     TuiInputDate,
-    TuiTextarea,
     TuiTag,
+    TuiTextarea,
     TuiTextfield,
     TuiTextfieldControllerModule,
     DragDropModule,
@@ -36,7 +37,7 @@ export class NotesPageComponent {
 
   protected readonly filtersForm = new FormGroup({
     title: new FormControl('', { nonNullable: true }),
-    date: new FormControl<Date | null>(null),
+    date: new FormControl<TuiDay | null>(null),
   });
 
   protected readonly noteForm = new FormGroup({
@@ -87,14 +88,18 @@ export class NotesPageComponent {
   }
 
   protected get filteredNotes(): Note[] {
-    const { title, date } = this.filtersForm.value;
+    const { title, date } = this.filtersForm.value as {
+      title: string;
+      date: TuiDay | null;
+    };
 
     return this.notes.filter((note) => {
       const matchesTag = !this.selectedTag || note.tag === this.selectedTag;
       const matchesTitle =
         !title || note.title.toLowerCase().includes(title.toLowerCase());
       const matchesDate =
-        !date || note.date.toDateString() === date.toDateString();
+        !date ||
+        note.date.toDateString() === date.toLocalNativeDate().toDateString();
       return matchesTag && matchesTitle && matchesDate;
     });
   }
