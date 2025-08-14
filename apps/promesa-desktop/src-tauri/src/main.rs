@@ -1,48 +1,70 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{Manager, WebviewUrl};
+use tauri::{Manager, WebviewUrl, RunEvent};
 use tauri::webview::WebviewWindowBuilder;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
+fn new_note_id() -> String {
+    let ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+    format!("note-{ms}")
+}
+
+fn open_note_window(app: &tauri::AppHandle, id: &str) {
+    let route = format!("todo/{id}");
+
+    // создаём окно сразу на нужном Angular-маршруте
+    let w = WebviewWindowBuilder::new(
+        app,
+        &format!("note-{}", id),                 // уникальный label на всякий случай
+        WebviewUrl::App(route.into())
+    )
+        .title("Заметка")
+        .build();
+
+    if let Ok(win) = w {
+        #[cfg(target_os = "macos")]
+        app.set_activation_policy(tauri::ActivationPolicy::Regular);
+        let _ = win.set_focus();
+        // Никаких prevent_close: окно действительно закрывается по Cmd+W
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn main() {
-  tauri::Builder::default()
-    .setup(|app| {
-      // подключаем плагин глобальных хоткеев
-      app.handle().plugin(
-        tauri_plugin_global_shortcut::Builder::new()
-          .with_handler(|app, shortcut, event| {
-            // реагируем на Option(Alt)+Shift+N
-            let wanted = Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::KeyN);
-            if event.state() == ShortcutState::Pressed && *shortcut == wanted {
-              // генерируем простой id (например, по времени)
-              let ms = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis();
-              let id = format!("note-{ms}");
+    // 1) Собираем приложение (через build), чтобы иметь доступ к .run(|..., event| ...)
+    let app = tauri::Builder::default()
+        .setup(|app| {
+            // macOS: пока нет окна — убираем иконку из Dock (необязательно)
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-              // путь Angular: todo/:id
-              let route = format!("todo/{id}");
+            // глобальный хоткей — Alt/Option + Shift + N
+            app.handle().plugin(
+                tauri_plugin_global_shortcut::Builder::new()
+                    .with_handler(|app, shortcut, event| {
+                        let combo = Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::KeyN);
+                        if event.state() == ShortcutState::Pressed && *shortcut == combo {
+                            let id = new_note_id();
+                            open_note_window(app, &id);
+                        }
+                    })
+                    .build(),
+            );
 
-              // создаём окно сразу на нужном маршруте вашего Angular
-              // В dev это будет <devUrl>/todo/:id, в проде — tauri://localhost/todo/:id
-              let _ = WebviewWindowBuilder::new(app, &id, WebviewUrl::App(route.into()))
-                .title("Новая заметка")
-                .build()
-                .and_then(|w| { w.set_focus().ok(); Ok(()) });
-            }
-          })
-          .build(),
-      );
+            app.global_shortcut()
+                .register(Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::KeyN))?;
 
-      // регистрируем сам хоткей (Option/Alt + Shift + N)
-      let gs = app.global_shortcut();
-      gs.register(Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::KeyN))?;
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("build failed");
 
-      Ok(())
-    })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    // 2) НЕ ДАЁМ ПРОЦЕССУ ВЫЙТИ, когда закрыли последнее окно
+    app.run(|_app_handle, event| {
+        if let RunEvent::ExitRequested { api, .. } = event {
+            api.prevent_exit(); // <-- ключевая строка
+            // Процесс остаётся жить, глобальный хоткей активен.
+        }
+    });
 }
