@@ -18,7 +18,7 @@
         formControlName="title"
         placeholder="Поиск по заголовку"
       />
-      <tui-input-date formControlName="date">Дата</tui-input-date>
+      <input tuiInputDate type="date" formControlName="date" />
     </div>
     <ul>
       <li *ngFor="let note of filteredNotes">
@@ -35,6 +35,6 @@
   </section>
   <section class="editor" *ngIf="selectedNote" [formGroup]="noteForm">
     <input tuiTextfield formControlName="title" placeholder="Заголовок" />
-    <tui-textarea class="content" formControlName="content"></tui-textarea>
+    <textarea tuiTextarea class="content" formControlName="content"></textarea>
   </section>
 </div>
