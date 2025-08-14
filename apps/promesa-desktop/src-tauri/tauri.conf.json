@@ -10,13 +10,7 @@
     "frontendDist": "../....//dist/promesa/browser"
   },
   "app": {
-    "windows": [
-      {
-        "title": "promesa-desktop",
-        "width": 800,
-        "height": 600
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }
