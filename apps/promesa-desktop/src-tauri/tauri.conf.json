@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Promesa",
+  "version": "0.1.0",
+  "identifier": "com.promesa.app",
+  "build": {
+    "beforeDevCommand": "npx nx serve promesa",
+    "devPath": "http://localhost:4200",
+    "beforeBuildCommand": "npx nx build promesa --configuration production",
+    "frontendDist": "../dist/apps/promesa"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Promesa",
+        "width": 800,
+        "height": 600
+      }
+    ]
+  }
+}
