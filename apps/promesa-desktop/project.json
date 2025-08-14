@@ -1,0 +1,22 @@
+{
+  "name": "promesa-desktop",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/promesa-desktop/src-tauri",
+  "targets": {
+    "dev": {
+      "executor": "@nx/workspace:run-commands",
+      "options": {
+        "command": "npx tauri dev",
+        "cwd": "apps/promesa-desktop"
+      }
+    },
+    "build": {
+      "executor": "@nx/workspace:run-commands",
+      "options": {
+        "command": "npx tauri build",
+        "cwd": "apps/promesa-desktop"
+      }
+    }
+  }
+}
