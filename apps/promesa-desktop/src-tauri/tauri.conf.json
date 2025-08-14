@@ -1,21 +1,35 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Promesa",
+  "productName": "promesa-desktop",
   "version": "0.1.0",
-  "identifier": "com.promesa.app",
+  "identifier": "com.maksimcuguev.promesa-desktop",
   "build": {
-    "beforeDevCommand": "npx nx serve promesa",
+    "beforeDevCommand": "npx nx run promesa:serve",
     "devUrl": "http://localhost:4200",
-    "beforeBuildCommand": "npx nx build promesa --configuration production",
-    "frontendDist": "../dist/apps/promesa"
+    "beforeBuildCommand": "npx nx run promesa:build",
+    "frontendDist": "../....//dist/promesa/browser"
   },
   "app": {
     "windows": [
       {
-        "title": "Promesa",
+        "title": "promesa-desktop",
         "width": 800,
         "height": 600
       }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
     ]
   }
 }
