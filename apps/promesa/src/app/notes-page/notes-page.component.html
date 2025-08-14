@@ -1,19 +1,24 @@
 <div class="notes-container">
-  <aside class="tags">
+  <aside class="tags" cdkDropList (cdkDropListDropped)="drop($event)">
     <button
       tuiTag
       type="button"
       *ngFor="let tag of tags"
       (click)="selectTag(tag)"
       [class.active]="selectedTag === tag"
+      cdkDrag
     >
       {{ tag }}
     </button>
   </aside>
   <section class="list">
-    <div class="filters">
-      <tui-input [(ngModel)]="titleFilter" placeholder="Поиск по заголовку"></tui-input>
-      <tui-input-date [(ngModel)]="dateFilter">Дата</tui-input-date>
+    <div class="filters" [formGroup]="filtersForm">
+      <input
+        tuiTextfield
+        formControlName="title"
+        placeholder="Поиск по заголовку"
+      />
+      <tui-input-date formControlName="date">Дата</tui-input-date>
     </div>
     <ul>
       <li *ngFor="let note of filteredNotes">
@@ -28,11 +33,8 @@
       </li>
     </ul>
   </section>
-  <section class="editor" *ngIf="selectedNote">
-    <tui-input [(ngModel)]="selectedNote.title" placeholder="Заголовок"></tui-input>
-    <tui-textarea
-      class="content"
-      [(ngModel)]="selectedNote.content"
-    ></tui-textarea>
+  <section class="editor" *ngIf="selectedNote" [formGroup]="noteForm">
+    <input tuiTextfield formControlName="title" placeholder="Заголовок" />
+    <tui-textarea class="content" formControlName="content"></tui-textarea>
   </section>
 </div>

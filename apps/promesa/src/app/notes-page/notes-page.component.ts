@@ -1,7 +1,10 @@
 import { CommonModule, DatePipe } from '@angular/common';
 import { Component } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { TuiInputModule, TuiInputDateModule, TuiTagModule, TuiTextareaModule } from '@taiga-ui/kit';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { TuiInputDate, TuiTag, TuiTextarea } from '@taiga-ui/kit';
+import { TuiTextfieldControllerModule, TuiTextfield } from '@taiga-ui/core';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 interface Note {
   id: number;
@@ -15,11 +18,13 @@ interface Note {
   selector: 'app-notes-page',
   imports: [
     CommonModule,
-    FormsModule,
-    TuiInputModule,
-    TuiInputDateModule,
-    TuiTextareaModule,
-    TuiTagModule,
+    ReactiveFormsModule,
+    TuiInputDate,
+    TuiTextarea,
+    TuiTag,
+    TuiTextfield,
+    TuiTextfieldControllerModule,
+    DragDropModule,
     DatePipe,
   ],
   templateUrl: './notes-page.component.html',
@@ -28,8 +33,16 @@ interface Note {
 export class NotesPageComponent {
   protected readonly tags: string[] = ['Работа', 'Личное', 'Идеи'];
   protected selectedTag = this.tags[0];
-  protected titleFilter = '';
-  protected dateFilter: Date | null = null;
+
+  protected readonly filtersForm = new FormGroup({
+    title: new FormControl('', { nonNullable: true }),
+    date: new FormControl<Date | null>(null),
+  });
+
+  protected readonly noteForm = new FormGroup({
+    title: new FormControl('', { nonNullable: true }),
+    content: new FormControl('', { nonNullable: true }),
+  });
 
   protected notes: Note[] = [
     {
@@ -57,15 +70,31 @@ export class NotesPageComponent {
 
   protected selectedNote: Note | null = this.notes[0];
 
+  constructor() {
+    if (this.selectedNote) {
+      this.noteForm.setValue({
+        title: this.selectedNote.title,
+        content: this.selectedNote.content,
+      });
+    }
+
+    this.noteForm.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) => {
+      if (this.selectedNote) {
+        this.selectedNote.title = value.title;
+        this.selectedNote.content = value.content;
+      }
+    });
+  }
+
   protected get filteredNotes(): Note[] {
+    const { title, date } = this.filtersForm.value;
+
     return this.notes.filter((note) => {
       const matchesTag = !this.selectedTag || note.tag === this.selectedTag;
       const matchesTitle =
-        !this.titleFilter ||
-        note.title.toLowerCase().includes(this.titleFilter.toLowerCase());
+        !title || note.title.toLowerCase().includes(title.toLowerCase());
       const matchesDate =
-        !this.dateFilter ||
-        note.date.toDateString() === this.dateFilter.toDateString();
+        !date || note.date.toDateString() === date.toDateString();
       return matchesTag && matchesTitle && matchesDate;
     });
   }
@@ -77,6 +106,11 @@ export class NotesPageComponent {
 
   protected selectNote(note: Note): void {
     this.selectedNote = note;
+    this.noteForm.setValue({ title: note.title, content: note.content });
+  }
+
+  protected drop(event: CdkDragDrop<string[]>): void {
+    moveItemInArray(this.tags, event.previousIndex, event.currentIndex);
   }
 }
 
