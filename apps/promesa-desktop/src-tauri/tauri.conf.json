@@ -5,7 +5,7 @@
   "identifier": "com.promesa.app",
   "build": {
     "beforeDevCommand": "npx nx serve promesa",
-    "devPath": "http://localhost:4200",
+    "devUrl": "http://localhost:4200",
     "beforeBuildCommand": "npx nx build promesa --configuration production",
     "frontendDist": "../dist/apps/promesa"
   },

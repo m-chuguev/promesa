@@ -4,6 +4,6 @@ export const appRoutes: Route[] = [
   {
     path: 'todo/:id',
     loadComponent: () =>
-      import('./todo-edit.component').then((m) => m.TodoEditComponent),
+      import('./todo/todo-edit.component').then((m) => m.TodoEditComponent),
   },
 ];
