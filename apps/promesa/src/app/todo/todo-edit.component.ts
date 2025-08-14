@@ -1,8 +1,12 @@
 import { CommonModule } from '@angular/common';
-import {Component, inject, OnDestroy} from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import {Component, DestroyRef, inject, OnDestroy} from '@angular/core';
+import {FormBuilder, FormControl, ReactiveFormsModule} from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import {TodoService} from "./todo.service";
+import {listen, once} from '@tauri-apps/api/event';
+import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+
 
 @Component({
   selector: 'app-todo-edit',
@@ -15,24 +19,64 @@ import {TodoService} from "./todo.service";
       <label for="note">Note</label>
       <input id="note" type="text" formControlName="note" />
       <button type="submit">Save</button>
+      {{payload | json}}
     </form>
   `,
 })
 export class TodoEditComponent implements OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  private destroyRef = inject(DestroyRef);
   public todoService = inject(TodoService);
+  private unlisten: any;
+  public payload: any = {};
 
   readonly id = this.route.snapshot.paramMap.get('id');
   readonly form = this.fb.group({
-    note: [''],
+    note: new FormControl(''),
   });
 
-  constructor() {
+  // constructor() {
+  //   const unlistenPromise = listen<{text: string}>('note-text', ({ payload }) => {
+  //     this.form.controls.note.setValue(payload.text);
+  //     this.todoService.value = payload.text;
+  //   });
+  //
+  //
+  //   this.form.valueChanges.subscribe(value => {
+  //     this.todoService.value = value.note ?? ''
+  //   })
+  //
+  //   // this.route.queryParamMap
+  //   //   .pipe(takeUntilDestroyed(this.destroyRef))
+  //   //   .subscribe(q => {
+  //   //     const text = q.get('text') ?? '';
+  //   //     this.form.controls.note.setValue(text);
+  //   //   });
+  // }
 
-    this.form.valueChanges.subscribe(value => {
-      this.todoService.value = value.note ?? ''
-    })
+  ngOnInit() {
+    // const appWebview = getCurrentWebviewWindow();
+    // appWebview.once('note-text', (value) => {
+    //   this.form.setValue({note: 'not value'});
+    //   this.todoService.value = 'not value';
+    //   this.payload = value;
+    //
+    // });
+    //
+    // this.unlisten = listen<{ text: string }>('note-text', (value) => {
+    //   // console.log('[listen] got payload:', payload);
+    //   // this.form.controls.note.setValue(payload?.text ?? 'not value');
+    //   // this.todoService.value = payload?.text ?? 'not value';
+    //   this.payload = value;
+    // });
+
+      this.route.queryParamMap
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe(q => {
+          const text = q.get('text') ?? '';
+          this.form.controls.note.setValue(text ?? 'not value');
+        });
   }
 
   save() {
@@ -43,5 +87,6 @@ export class TodoEditComponent implements OnDestroy {
 
   ngOnDestroy() {
     this.todoService.counter.set(this.todoService.counter() + 1);
+    this.unlisten?.();
   }
 }

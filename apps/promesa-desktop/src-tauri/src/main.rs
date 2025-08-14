@@ -1,13 +1,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::{Manager, WebviewUrl, RunEvent};
+use tauri::{Manager, WebviewUrl, RunEvent, Emitter};
 use tauri::webview::WebviewWindowBuilder;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-// Имитируем системное Copy, чтобы в буфер попал выделенный текст
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
+
+// Имитируем системное Copy, чтобы в буфер попал выделенный текст
 fn press_system_copy() -> anyhow::Result<()> {
     use enigo::{Enigo, Key, Keyboard, Direction, Settings};
     let mut enigo = Enigo::new(&Settings::default())?;
@@ -46,15 +47,48 @@ fn open_note_with_clipboard_text(app: &tauri::AppHandle) {
     // 3) Открываем Angular на todo/new с автозаполнением через query
     let label = new_note_label();
     let route = format!("todo/new?text={q}");
-    if let Ok(win) = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(route.into()))
+    let w = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(route.into()))
         .title("Заметка")
-        .build()
-    {
-        #[cfg(target_os = "macos")]
-        app.set_activation_policy(tauri::ActivationPolicy::Regular);
+        .build();
+
+    if let Ok(win) = w {
         let _ = win.set_focus();
-        // Никаких prevent_close — окно реально закроется по Cmd+W
+        let _ = app.emit_to(&label, "note-text", q);
     }
+    //
+    // let app_handle = app.clone();
+    //
+    // thread::spawn(move || {
+    //     thread::sleep(Duration::from_millis(250));    // ← задержка
+    //     if let Some(wnd) = app_handle.get_webview_window(&label) {
+    //         let _ = wnd.emit("note-text", serde_json::json!({ "text": q }));
+    //     }
+    // });
+    //
+    // {
+    //     #[cfg(target_os = "macos")]
+    //     app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    //     // Никаких prevent_close — окно реально закроется по Cmd+W
+    // }
+    // if let Ok(win) = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(route.into()))
+    //     .title("Заметка")
+    //     .build()
+    // {
+    //     let _ = win.set_focus();
+    //     // std::thread::sleep(std::time::Duration::from_millis(1500));
+    //     let _ = app.emit_to(&label, "note-text", serde_json::json!({ "text": q }));
+    //
+    //     // // данные, которые понадобятся в другом потоке
+    //     // let app_handle = app.clone();
+    //     // let label_for_thread = label.clone();
+    //     // let payload = serde_json::json!({ "text": q });
+    //     //
+    //     // // отдельный поток: ждём 250 мс и только потом шлём событие в это окно
+    //     // thread::spawn(move || {
+    //     //     thread::sleep(Duration::from_millis(250));                  // чтобы фронт успел подписаться
+    //     //     let _ = app_handle.emit_to(&label_for_thread, "note-text", payload);   // <— ВАЖНО: emit_to по label
+    //     // });
+    // }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
