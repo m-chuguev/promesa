@@ -7,7 +7,7 @@
     "beforeDevCommand": "npx nx run promesa:serve",
     "devUrl": "http://localhost:4200",
     "beforeBuildCommand": "npx nx run promesa:build",
-    "frontendDist": "../....//dist/promesa/browser"
+    "frontendDist": "../../../dist/apps/promesa/browser"
   },
   "app": {
     "windows": [],

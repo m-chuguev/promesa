@@ -108,7 +108,7 @@ fn main() {
 
             // 1) СОЗДАЁМ МЕНЮ ТРЕЯ
             let quit = MenuItem::with_id(app, "tray-quit", "Выйти", true, None::<&str>)?;
-            let open = MenuItem::with_id(app, "tray-new", "New note", true, None::<&str>)?;
+            let open = MenuItem::with_id(app, "tray-new", "Новая заметка", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&quit, &open])?;
 
             // 2) СБОРКА ТРЕЯ
