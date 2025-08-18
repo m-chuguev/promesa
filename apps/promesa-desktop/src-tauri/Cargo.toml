@@ -33,3 +33,4 @@ cocoa = "0.24"
 objc = "0.2"
 [target.'cfg(target_os = "macos")'.dependencies]
 core-graphics = "0.25"
+tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }

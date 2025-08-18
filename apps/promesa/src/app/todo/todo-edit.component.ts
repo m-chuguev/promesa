@@ -7,6 +7,7 @@ import {listen, once} from '@tauri-apps/api/event';
 import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import {TuiEditor} from "@taiga-ui/editor";
+import {TodoClient} from "../clients/todo.client";
 
 
 @Component({
@@ -15,6 +16,7 @@ import {TuiEditor} from "@taiga-ui/editor";
   imports: [CommonModule, ReactiveFormsModule, TuiEditor],
   template: `
     <h2>Edit note {{ id }}</h2>
+    {{completeText}}
     <h4>destroy: {{ todoService.counter() }} {{todoService.value}}</h4>
     <form [formGroup]="form" (ngSubmit)="save()">
       <label for="note">Note</label>
@@ -35,6 +37,8 @@ export class TodoEditComponent implements OnDestroy {
   public todoService = inject(TodoService);
   private unlisten: any;
   public payload: any = {};
+  public completeText = '';
+  private client = inject(TodoClient);
 
   readonly id = this.route.snapshot.paramMap.get('id');
   readonly form = this.fb.group({
@@ -86,6 +90,17 @@ export class TodoEditComponent implements OnDestroy {
 
   save() {
     if (this.form.valid) {
+      this.client.create(this.form.value).subscribe({
+        next: () => {
+          this.completeText = 'next'
+        },
+        complete: () => {
+          this.completeText = 'complete'
+        },
+        error: (error) => {
+          this.completeText = error
+        }
+      })
       console.log(`Saving note ${this.id}:`, this.form.value.note);
     }
   }

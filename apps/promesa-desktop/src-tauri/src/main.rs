@@ -72,6 +72,7 @@ fn main() {
         .setup(|app| {
             // плагины
             app.handle().plugin(tauri_plugin_clipboard_manager::init());
+            app.handle().plugin(tauri_plugin_http::init());
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
                     .with_handler(|app, shortcut, event| {

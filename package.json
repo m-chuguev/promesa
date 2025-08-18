@@ -20,6 +20,7 @@
     "@taiga-ui/kit": "^4.49.0",
     "@taiga-ui/legacy": "^4.49.0",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-http": "^2.5.1",
     "@tauri-apps/plugin-opener": "^2",
     "rxjs": "~7.8.0",
     "zone.js": "~0.15.0"
