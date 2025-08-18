@@ -14,6 +14,7 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{
     Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
 };
+use tauri::{LogicalSize, PhysicalSize, Size, LogicalPosition};
 
 // ----- macOS: раскладконезависимый Cmd+C через Quartz CGEvent -----
 #[cfg(target_os = "macos")]
@@ -60,12 +61,23 @@ fn open_note_with_query(app: &tauri::AppHandle, text: String) {
     };
 
     let label = new_label();
+    let w = 850.0;
+    let h = 600.0;
     if let Ok(win) =
         WebviewWindowBuilder::new(app, &label, WebviewUrl::App(route.into()))
-            .title("Заметка")
+            .title("Новая заметка")
+            .inner_size(w, h)
             .build()
     {
-        let _ = win.set_focus();
+        if let Ok(Some(m)) = win.current_monitor() {
+            let scale = m.scale_factor();
+            let size  = m.size();
+            let screen_w_logical = (size.width as f64) / scale;
+            let margin = 12.0;
+            let x = screen_w_logical - w - margin;
+            let y = margin;
+            let _ = win.set_position(LogicalPosition::new(x, y));
+        }
     }
 }
 
