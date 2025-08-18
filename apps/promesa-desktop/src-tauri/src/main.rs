@@ -1,12 +1,14 @@
 // src-tauri/src/main.rs
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use tauri::{Manager, RunEvent, WebviewUrl};
+use tauri::{Manager, RunEvent, WebviewUrl,   menu::{Menu, MenuItem}};
+use tauri::tray::TrayIconBuilder;
 use tauri::webview::WebviewWindowBuilder;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{
@@ -67,9 +69,14 @@ fn open_note_with_query(app: &tauri::AppHandle, text: String) {
     }
 }
 
+struct QuitFlag(AtomicBool);
+
 fn main() {
     let app = tauri::Builder::default()
         .setup(|app| {
+            // 1) регистрируем состояние с флагом
+            app.manage(QuitFlag(AtomicBool::new(false)));
+
             // плагины
             app.handle().plugin(tauri_plugin_clipboard_manager::init());
             app.handle().plugin(tauri_plugin_http::init());
@@ -99,6 +106,40 @@ fn main() {
                     .build(),
             );
 
+            // 1) СОЗДАЁМ МЕНЮ ТРЕЯ
+            let quit = MenuItem::with_id(app, "tray-quit", "Выйти", true, None::<&str>)?;
+            let open = MenuItem::with_id(app, "tray-new", "New note", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&quit, &open])?;
+
+            // 2) СБОРКА ТРЕЯ
+            let mut tray = TrayIconBuilder::new()
+                .menu(&menu)
+                .menu_on_left_click(true) // по клику ЛКМ сразу показывать меню
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "tray-quit" => {
+                        // установить флаг и инициировать выход
+                        let flag = app.state::<QuitFlag>();
+                        flag.0.store(true, Ordering::SeqCst);
+                        app.exit(0) },      // ← ПОЛНОЕ завершение процесса
+                    "tray-new" => {
+                        emulate_copy();
+                        // ждём, пока ОС обновит буфер
+                        thread::sleep(Duration::from_millis(120));
+                        let text = app.clipboard().read_text().unwrap_or_default();
+                        open_note_with_query(app, text);
+                    }
+                    _ => {}
+                });
+
+            // поставить иконку из конфигурации приложения (если есть)
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+                #[cfg(target_os = "macos")]
+                { tray = tray.icon_as_template(true); } // красиво в тёмной теме
+            }
+
+            tray.build(app)?;
+
             // регистрируем хоткеи
             let gs = app.global_shortcut();
             gs.register(Shortcut::new(
@@ -116,9 +157,17 @@ fn main() {
         .expect("build failed");
 
     // держим процесс живым после закрытия последнего окна
-    app.run(|_, event| {
+    app.run(|app_handle, event| {
         if let RunEvent::ExitRequested { api, .. } = event {
-            api.prevent_exit();
+            let quitting = app_handle
+                .try_state::<QuitFlag>()
+                .map(|f| f.0.load(Ordering::SeqCst))
+                .unwrap_or(false);
+
+            if !quitting {
+                api.prevent_exit(); // держим процесс живым при закрытии окон
+            }
+            // если quitting == true — НЕ предотвращаем, приложение корректно выйдет
         }
     });
 }
