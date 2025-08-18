@@ -63,21 +63,34 @@ fn open_note_with_query(app: &tauri::AppHandle, text: String) {
     let label = new_label();
     let w = 850.0;
     let h = 600.0;
+    let margin = 12.0;
+
+    // Берём primary monitor (можешь выбрать другой из app.available_monitors()? )
+    let (x, y) = if let Ok(Some(m)) = app.primary_monitor() {
+        let scale = m.scale_factor();
+        let size  = m.size();                // PhysicalSize<u32>
+        let pos   = m.position();            // PhysicalPosition<i32> (смещение монитора в виртуальном пространстве)
+
+        let screen_w_log = (size.width as f64) / scale;
+        let screen_x_log = (pos.x as f64)   / scale;
+        let screen_y_log = (pos.y as f64)   / scale;
+
+        let x = screen_x_log + screen_w_log - w - margin;
+        let y = screen_y_log + margin;      // верх с отступом
+        (x, y)
+    } else {
+        // Фолбэк — правый верх «главного» экрана с нулевого начала координат
+        (1920.0 - w - margin, margin)
+    };
+
     if let Ok(win) =
         WebviewWindowBuilder::new(app, &label, WebviewUrl::App(route.into()))
             .title("Новая заметка")
             .inner_size(w, h)
+            .position(x, y)
             .build()
     {
-        if let Ok(Some(m)) = win.current_monitor() {
-            let scale = m.scale_factor();
-            let size  = m.size();
-            let screen_w_logical = (size.width as f64) / scale;
-            let margin = 12.0;
-            let x = screen_w_logical - w - margin;
-            let y = margin;
-            let _ = win.set_position(LogicalPosition::new(x, y));
-        }
+        let _ = win.set_focus();
     }
 }
 
